@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prompt Generator"
+  short_description: "Generate single-label Qwen vision mining prompts."
+  default_prompt: "Use $prompt-generator to create a single-label Qwen vision mining prompt for traffic cone detection."

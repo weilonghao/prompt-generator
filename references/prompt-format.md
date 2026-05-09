@@ -1,4 +1,4 @@
-# Single-Label Qwen Vision Mining Prompt Format
+# Qwen Vision Mining Prompt Format
 
 Use this reference to generate prompt JSON for autonomous-driving front-camera visual data mining.
 
@@ -13,6 +13,8 @@ The deliverable is a JSON file with exactly one top-level field:
 ```
 
 The `prompt` value is the full instruction sent to Qwen/Qwen3-VL. Do not output a bare prompt string unless the user explicitly asks for that.
+
+The embedded `prompt` must stay under 7000 tokens. If a draft is too long, compress examples and duplicated exclusions first; do not remove output-format constraints or core hard-negative boundaries.
 
 ## Embedded Prompt Structure
 
@@ -33,12 +35,13 @@ Use `判断` for scene classification and `识别` for object/mark detection.
 
 ## Label Rules
 
-- Single-label only: each model output must contain exactly one result label.
+- Default to single-label: each model output contains exactly one result label.
 - Labels must be English identifiers.
 - Prefer `snake_case` for generated labels.
 - Preserve user-provided label spelling when supplied.
 - Always include `None` unless the user explicitly provides a closed class set with no negative class.
 - Use `None` exactly, not `none`, `null`, `无`, or `其他`.
+- Use multi-label only when the user explicitly needs co-occurring categories in one image and the downstream parser accepts list outputs.
 
 ## Judgment Rule Pattern
 
@@ -58,7 +61,7 @@ N. **无（None）**：
    - 输出：result字段为["None"]，reason字段说明未检测到目标或不属于目标场景。
 ```
 
-For ambiguous cases, add exclusion rules under the relevant class rather than allowing multiple labels.
+For ambiguous cases, add exclusion rules under the relevant class. If a key condition is unclear, prefer `None` unless the prompt defines a stricter positive exception.
 
 ## Output Format Section
 
@@ -73,6 +76,8 @@ Include these requirements, adapted with the allowed labels:
 ```
 
 For object detection tasks, ask `reason` to include position and count. For scene classification, ask it to include scene type and boundary conditions.
+
+For production mining prompts, also require `reason` to include valid scope and hard-negative reasoning when relevant: whether the target lies inside the allowed region, whether lighting/occlusion/blur permits judgment, and why common look-alikes are excluded.
 
 ## Reference Examples
 
@@ -93,6 +98,14 @@ Example for an object:
 
 Example JSON lines may be compact (`{"result":["x"],...}`) or spaced like the legacy examples, but the final model output must still be strict JSON.
 
+Keep examples targeted. Prefer one clear positive, one boundary positive when needed, and one or more hard `None` examples over a long list of repetitive positives.
+
 ## Multi-Label Requests
 
-Do not generate multi-label prompts in this first version. If the requested classes can co-occur, recommend splitting the work into separate single-label prompts, one prompt per target.
+Prefer splitting co-occurring targets into separate single-label prompts. If the user explicitly asks for one multi-label prompt:
+
+- `result` is a list of all visible allowed labels.
+- The list is ordered, usually left-to-right then top-to-bottom when location matters.
+- Repeated categories are not repeated.
+- `None` is used only when no allowed label appears, and must not be mixed with positive labels.
+- The output section must say this clearly, and examples must include at least one multi-label positive and one `None`.
